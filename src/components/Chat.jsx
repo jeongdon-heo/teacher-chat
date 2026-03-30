@@ -32,24 +32,39 @@ export default function Chat({ roomCode, role, onLogout }) {
     }, 100);
   }, []);
 
-  // ── Load messages ──
-  useEffect(() => {
+  // ── Fetch messages from DB ──
+  const fetchMessages = useCallback(async () => {
     if (!supabase) return;
-    const loadMessages = async () => {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('room_code', roomCode)
-        .order('created_at', { ascending: true })
-        .limit(200);
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('room_code', roomCode)
+      .order('created_at', { ascending: true })
+      .limit(200);
 
-      if (!error && data) {
-        setMessages(data);
-        scrollToBottom('auto');
-      }
-    };
-    loadMessages();
-  }, [roomCode, scrollToBottom]);
+    if (!error && data) {
+      setMessages((prev) => {
+        if (JSON.stringify(prev.map(m => m.id)) === JSON.stringify(data.map(m => m.id)) &&
+            prev.length === data.length) {
+          // Check if is_read changed
+          const changed = data.some((d, i) => prev[i]?.is_read !== d.is_read);
+          return changed ? data : prev;
+        }
+        return data;
+      });
+    }
+  }, [roomCode]);
+
+  // ── Initial load ──
+  useEffect(() => {
+    fetchMessages().then(() => scrollToBottom('auto'));
+  }, [fetchMessages, scrollToBottom]);
+
+  // ── Polling fallback (every 3s) ──
+  useEffect(() => {
+    const interval = setInterval(fetchMessages, 3000);
+    return () => clearInterval(interval);
+  }, [fetchMessages]);
 
   // ── Realtime subscription ──
   useEffect(() => {
@@ -71,7 +86,6 @@ export default function Chat({ roomCode, role, onLogout }) {
           });
           scrollToBottom();
 
-          // Auto mark as read if from the other person
           if (payload.new.sender_role !== role) {
             markAsRead(payload.new.id);
           }
@@ -141,16 +155,37 @@ export default function Chat({ roomCode, role, onLogout }) {
   const sendMessage = async (e) => {
     e?.preventDefault();
     const text = input.trim();
-    if (!text) return;
+    if (!text || !supabase) return;
 
     setInput('');
-    if (!supabase) return;
-    await supabase.from('messages').insert({
+
+    // Optimistic: show message immediately
+    const tempMsg = {
+      id: `temp-${Date.now()}`,
+      room_code: roomCode,
+      sender_role: role,
+      content: text,
+      file_url: null,
+      file_name: null,
+      file_type: null,
+      is_read: false,
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, tempMsg]);
+    scrollToBottom();
+
+    const { error } = await supabase.from('messages').insert({
       room_code: roomCode,
       sender_role: role,
       content: text,
       is_read: false,
     });
+
+    if (error) {
+      console.error('Send error:', error);
+      // Remove optimistic message on failure
+      setMessages((prev) => prev.filter((m) => m.id !== tempMsg.id));
+    }
   };
 
   // ── File upload ──
@@ -185,7 +220,7 @@ export default function Chat({ roomCode, role, onLogout }) {
       await supabase.from('messages').insert({
         room_code: roomCode,
         sender_role: role,
-        content: isImage ? '📷 사진' : `📎 ${file.name}`,
+        content: isImage ? '사진' : file.name,
         file_url: urlData.publicUrl,
         file_name: file.name,
         file_type: file.type,
@@ -255,10 +290,6 @@ export default function Chat({ roomCode, role, onLogout }) {
       </a>
     );
   };
-
-  const unreadCount = messages.filter(
-    (m) => m.sender_role !== role && !m.is_read
-  ).length;
 
   return (
     <div className="chat-container">
