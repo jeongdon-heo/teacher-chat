@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Login from './components/Login';
 import Chat from './components/Chat';
+import InstallPrompt from './components/InstallPrompt';
 import './styles.css';
 
 export default function App() {
@@ -26,7 +27,12 @@ export default function App() {
   };
 
   if (!session) {
-    return <Login onLogin={handleLogin} />;
+    return (
+      <>
+        <InstallPrompt />
+        <Login onLogin={handleLogin} />
+      </>
+    );
   }
 
   return (

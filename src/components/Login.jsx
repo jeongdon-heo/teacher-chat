@@ -20,6 +20,7 @@ export default function Login({ onLogin }) {
     setError('');
     const code = generateCode();
     try {
+      if (!supabase) throw new Error('서버 연결 실패');
       const { error: err } = await supabase
         .from('rooms')
         .insert({ code });
@@ -40,6 +41,7 @@ export default function Login({ onLogin }) {
     setLoading(true);
     setError('');
     try {
+      if (!supabase) throw new Error('서버 연결 실패');
       const { data, error: err } = await supabase
         .from('rooms')
         .select('code')

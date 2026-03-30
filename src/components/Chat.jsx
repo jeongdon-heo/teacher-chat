@@ -34,6 +34,7 @@ export default function Chat({ roomCode, role, onLogout }) {
 
   // ── Load messages ──
   useEffect(() => {
+    if (!supabase) return;
     const loadMessages = async () => {
       const { data, error } = await supabase
         .from('messages')
@@ -52,6 +53,7 @@ export default function Chat({ roomCode, role, onLogout }) {
 
   // ── Realtime subscription ──
   useEffect(() => {
+    if (!supabase) return;
     const channel = supabase
       .channel(`room-${roomCode}`)
       .on(
@@ -98,6 +100,7 @@ export default function Chat({ roomCode, role, onLogout }) {
 
   // ── Mark messages as read ──
   const markAsRead = async (msgId) => {
+    if (!supabase) return;
     await supabase
       .from('messages')
       .update({ is_read: true })
@@ -106,6 +109,7 @@ export default function Chat({ roomCode, role, onLogout }) {
 
   // ── Mark all unread from other person ──
   useEffect(() => {
+    if (!supabase) return;
     const markAllRead = async () => {
       const unread = messages.filter(
         (m) => m.sender_role !== role && !m.is_read
@@ -140,7 +144,7 @@ export default function Chat({ roomCode, role, onLogout }) {
     if (!text) return;
 
     setInput('');
-
+    if (!supabase) return;
     await supabase.from('messages').insert({
       room_code: roomCode,
       sender_role: role,
