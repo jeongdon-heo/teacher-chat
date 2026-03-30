@@ -28,7 +28,8 @@ export default function Login({ onLogin }) {
       setRoomCode(code);
       setStep(2);
     } catch (e) {
-      setError('방 생성에 실패했습니다. 다시 시도해주세요.');
+      console.error('Room creation error:', e);
+      setError(`방 생성 실패: ${e?.message || e?.code || JSON.stringify(e)}`);
     }
     setLoading(false);
   };
@@ -54,8 +55,9 @@ export default function Login({ onLogin }) {
       }
       setRoomCode(data.code);
       setStep(2);
-    } catch {
-      setError('연결에 실패했습니다.');
+    } catch (e) {
+      console.error('Join room error:', e);
+      setError(`연결 실패: ${e?.message || e?.code || JSON.stringify(e)}`);
     }
     setLoading(false);
   };
